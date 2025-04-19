@@ -63,8 +63,8 @@ with st.sidebar:
     with st.form("travel_form"):
         city = st.selectbox("Destination City", ["New York", "San Francisco", "Chicago", "Seattle", "Las Vegas", "Los Angeles"])
         today = date.today()
-        start_date = st.date_input("Start Date", today, min_value=today)
-        end_date = st.date_input("End Date", today, min_value=start_date)
+        start_date = st.date_input("Start Date", today + timedelta(days=1), min_value=today)
+        end_date = st.date_input("End Date", today + timedelta(days=2), min_value=start_date)
         preference = st.selectbox("Package", [
             "Suggest an itinerary with Tours, Accommodation, Things to do",
             "Suggest an itinerary with Accommodation, Things to do",
