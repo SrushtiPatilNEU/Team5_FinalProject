@@ -6,7 +6,7 @@ fpdf
 pillow
 requests
 beautifulsoup4
-pinecone-client
+pinecone
 snowflake-connector-python
 litellm
 crewai
