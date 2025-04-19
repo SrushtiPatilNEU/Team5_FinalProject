@@ -4,10 +4,11 @@ from datetime import date, timedelta
 import io
 import base64
 
+# API endpoint
 BACKEND_URL = "https://api-620400361669.us-central1.run.app"
 st.set_page_config(page_title="Smart Travel Itinerary", layout="wide", page_icon="✈️")
 
-# CSS for WhatsApp-style chat
+# --- CSS Styling ---
 st.markdown("""
 <style>
 .chat-container {
@@ -34,37 +35,47 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Reset button
+# --- Reset Button ---
 if st.sidebar.button("🔄 Reset App"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
 
-# Helper for styled download button
+# --- Download PDF Helper ---
 def create_download_link(pdf_bytes, filename):
     try:
         b64 = base64.b64encode(pdf_bytes.read()).decode()
-        href = f'''
+        return f'''
         <a href="data:application/pdf;base64,{b64}" download="{filename}" 
-           style="display: inline-block; padding: 12px 20px; 
-                  background-color: #3b82f6; color: white; 
-                  text-decoration: none; border-radius: 8px; 
-                  font-weight: 600; text-align: center;">
+           style="display:inline-block;padding:12px 20px;background-color:#3b82f6;color:white;
+                  text-decoration:none;border-radius:8px;font-weight:600;text-align:center;">
             ⬇️ Download PDF Itinerary
         </a>
         '''
-        return href
     except Exception:
         st.error("Error creating download link.")
         return ""
 
+# --- Sidebar Form ---
 with st.sidebar:
     st.title("Plan Your Trip")
     with st.form("travel_form"):
         city = st.selectbox("Destination City", ["New York", "San Francisco", "Chicago", "Seattle", "Las Vegas", "Los Angeles"])
         today = date.today()
-        start_date = st.date_input("Start Date", today + timedelta(days=1), min_value=today)
-        end_date = st.date_input("End Date", today + timedelta(days=2), min_value=start_date)
+
+        # Default values
+        default_start = st.session_state.get("start_date", today + timedelta(days=1))
+        default_end = st.session_state.get("end_date", default_start + timedelta(days=2))
+
+        # Inputs
+        start_date = st.date_input("Start Date", value=default_start, min_value=today + timedelta(days=1))
+        end_date = st.date_input("End Date", value=default_end, min_value=today + timedelta(days=1))
+
+        # Validate dates (after user selection)
+        if end_date < start_date:
+            st.warning("⚠️ End date cannot be before start date.")
+            st.stop()
+
         preference = st.selectbox("Package", [
             "Suggest an itinerary with Tours, Accommodation, Things to do",
             "Suggest an itinerary with Accommodation, Things to do",
@@ -73,6 +84,7 @@ with st.sidebar:
         budget = st.select_slider("Budget", options=["low", "medium", "high"], value="medium")
         submitted = st.form_submit_button("Generate Itinerary")
 
+# --- Store to Session & Rerun ---
 if submitted:
     st.session_state.clear()
     st.session_state.submitted = True
@@ -85,7 +97,7 @@ if submitted:
     st.session_state.chat_history = []
     st.rerun()
 
-# ------------------ Generate Itinerary ------------------
+# --- Generate Itinerary ---
 if st.session_state.get("loading", False):
     st.info("⏳ Generating itinerary, please wait...")
     with st.spinner("Working on it..."):
@@ -118,7 +130,6 @@ if st.session_state.get("loading", False):
                     "itinerary": st.session_state.itinerary_text,
                     "start_date": str(st.session_state.start_date)
                 },
-
                 timeout=60
             )
             pdf_response.raise_for_status()
@@ -132,21 +143,16 @@ if st.session_state.get("loading", False):
             st.error(f"❌ Failed to generate itinerary: {e}")
             st.stop()
 
-# ------------------ Display Itinerary ------------------
+# --- Display Itinerary ---
 if st.session_state.get("itinerary_html"):
     st.success("✅ Your personalized itinerary is ready!")
-
     tabs = st.tabs(["📋 Itinerary", "📄 PDF Download", "💬 Ask About Your Itinerary"])
 
     with tabs[0]:
-        html_wrapper = f"""
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"><title>Itinerary</title></head>
-        <body>{st.session_state.itinerary_html}</body>
-        </html>
-        """
-        st.components.v1.html(html_wrapper, height=800, scrolling=True)
+        st.components.v1.html(
+            f"<html><body>{st.session_state.itinerary_html}</body></html>",
+            height=800, scrolling=True
+        )
 
     with tabs[1]:
         if "pdf_bytes" in st.session_state:
@@ -155,20 +161,13 @@ if st.session_state.get("itinerary_html"):
             st.warning("PDF not available.")
 
     with tabs[2]:
-        st.markdown("<h3 style='margin-bottom: 0.5rem;'>💬 Ask About Your Itinerary</h3>", unsafe_allow_html=True)
-
-        # Input field
+        st.markdown("### 💬 Ask About Your Itinerary")
         question_key = f"question_input_{len(st.session_state.get('chat_history', []))}"
-        question = st.text_input(
-            "❓ What would you like to know about your trip?",
-            key=question_key,
-            placeholder="E.g., Where's the best place for dinner?",
-            label_visibility="collapsed"
-        )
+        question = st.text_input("Ask your question:", key=question_key)
 
         if st.button("Ask Question"):
             if question.strip():
-                with st.spinner("Finding answers for you..."):
+                with st.spinner("Finding answers..."):
                     try:
                         res = requests.post(
                             f"{BACKEND_URL}/ask",
@@ -184,69 +183,22 @@ if st.session_state.get("itinerary_html"):
             else:
                 st.warning("Please enter a question.")
 
-        # Chat display with styling
         if st.session_state.get("chat_history"):
-            st.markdown("""
-            <style>
-            .chat-container {
-                display: flex;
-                flex-direction: column;
-                gap: 20px;
-                margin-top: 20px;
-            }
-            .chat-row {
-                display: flex;
-                align-items: flex-end;
-                gap: 10px;
-            }
-            .chat-user {
-                background-color: #d1fae5;
-                color: #0f5132;
-                padding: 10px 14px;
-                border-radius: 16px;
-                max-width: 100%;
-                margin-left: auto;
-                margin-right: 0; 
-                display: block;
-                text-align: left; 
-            }
-            .chat-bot {
-                background-color: #f0f0f0;
-                color: #111827;
-                padding: 10px 14px;
-                border-radius: 16px;
-                max-width: 100%;
-                margin-right: auto;
-            }
-            .label {
-                font-size: 13px;
-                margin-bottom: 2px;
-                font-weight: bold;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
             st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
             for q, a in st.session_state.chat_history[::-1]:
                 st.markdown(f"""
                 <div class='chat-row'>
-                    <div style='text-align: right;'>
-                        <div class='label'>You</div>
-                        <div class='chat-user'>{q}</div>
-                    </div>
-                </div><br>
+                    <div class='label'>You</div>
+                    <div class='chat-user'>{q}</div>
+                </div>
                 <div class='chat-row'>
-                    <div>
-                        <div class='label'>Response</div>
-                        <div class='chat-bot'>{a}</div>
-                    </div>
+                    <div class='label'>Response</div>
+                    <div class='chat-bot'>{a}</div>
                 </div><br>
                 """, unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-
-
-# ------------------ Welcome ------------------
+# --- Welcome Message ---
 elif not st.session_state.get("submitted"):
     st.markdown("## 👋 Welcome to Smart Travel Itinerary")
     st.markdown("Use the sidebar to generate your personalized travel plan with tours, stays, and hidden gems.")
