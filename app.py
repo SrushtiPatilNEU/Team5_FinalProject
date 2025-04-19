@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import io
 import base64
 
-BACKEND_URL = "https://travel-planner-app-577642034601.us-central1.run.app"
+BACKEND_URL = "https://api-620400361669.us-central1.run.app"
 st.set_page_config(page_title="Smart Travel Itinerary", layout="wide", page_icon="✈️")
 
 # CSS for WhatsApp-style chat
@@ -63,8 +63,8 @@ with st.sidebar:
     with st.form("travel_form"):
         city = st.selectbox("Destination City", ["New York", "San Francisco", "Chicago", "Seattle", "Las Vegas", "Los Angeles"])
         today = date.today()
-        start_date = st.date_input("Start Date", date.today() + timedelta(days=1))
-        end_date = st.date_input("End Date", start_date + timedelta(days=1))
+        start_date = st.date_input("Start Date", today + timedelta(days=1), min_value=today)
+        end_date = st.date_input("End Date", today + timedelta(days=2), min_value=start_date)
         preference = st.selectbox("Package", [
             "Suggest an itinerary with Tours, Accommodation, Things to do",
             "Suggest an itinerary with Accommodation, Things to do",
